@@ -33,12 +33,7 @@ for (const file of commandFiles) {
 }
 
 client.on("messageCreate", (message) => {
-  console.log(
-    "Message reçu dans le canal:",
-    message.channel.id,
-    "qui est :",
-    message.content
-  );
+  console.log(message);
   // Ne traitez pas les messages du bot lui-même
   if (message.author.bot) return;
 
