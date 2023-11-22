@@ -1,5 +1,4 @@
 const Discord = require("discord.js");
-const createHandler = require("github-webhook-handler");
 const fs = require("fs");
 const client = new Discord.Client({
   intents: [
@@ -9,17 +8,12 @@ const client = new Discord.Client({
   ],
 });
 
-const handler = createHandler({ path: "/webhook", secret: "Heylokiama" });
-
 const prefix = "!";
 
 client.once("ready", () => {
   console.log("Bot prêt !");
 });
-
-client.login(
-  "MTE3NjU5Mzk0NzQ4NTgwNjczNg.GQmFUx.DHr8jEy0mt5I0zEqnaEBveOhUNf9s15GfLVddE"
-);
+client.login(process.env.DISCORD_TOKEN);
 
 // Charger les commandes
 client.commands = new Map();
@@ -63,6 +57,40 @@ client.on("messageCreate", (message) => {
   }
 });
 
-client.login(
-  "MTE3NjU5Mzk0NzQ4NTgwNjczNg.GQmFUx.DHr8jEy0mt5I0zEqnaEBveOhUNf9s15GfLVddE"
-);
+//  ------- GitHub -------
+const createHandler = require("github-webhook-handler");
+const express = require("express");
+const app = express();
+const handler = createHandler({
+  path: "/webhook",
+  secret: process.env.GITHUB_SECRET,
+});
+// Middleware avec Express pour gérer les requêtes GitHub
+app.use("/webhook", (req, res, next) => {
+  handler(req, res, (err) => {
+    res.statusCode = 404;
+    res.end("Aucune correspondance pour cette route.");
+  });
+});
+
+// Écoutez le serveur sur le port souhaité (Glitch utilise le port process.env.PORT)
+app.listen(process.env.PORT || 3000, () => {
+  console.log(
+    `Serveur en cours d'écoute sur le port ${process.env.PORT || 3000}`
+  );
+});
+
+// Gestionnaire d'événements pour les alertes GitHub
+handler.on("error", (err) => {
+  console.error("Erreur du gestionnaire de webhook:", err.message);
+});
+
+handler.on("push", (event) => {
+  const repository = event.payload.repository.full_name;
+  const branch = event.payload.ref.replace("refs/heads/", "");
+
+  console.log(`Nouveau commit sur ${repository}:${branch}`);
+  // Envoyez l'alerte sur le canal Discord approprié ici
+});
+
+client.login(process.env.DISCORD_TOKEN);
