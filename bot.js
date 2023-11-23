@@ -7,11 +7,21 @@ const client = new Discord.Client({
     Discord.GatewayIntentBits.MessageContent,
   ],
 });
-
 const prefix = "!";
+const channelId = "1177235905761779862";
 
 client.once("ready", () => {
   console.log("Bot prêt !");
+  // Définir l'intervalle pour envoyer le message toutes les 4 minutes
+  setInterval(() => {
+    const channel = client.channels.cache.get(channelId);
+
+    if (channel) {
+      channel.send("Ceci est un message automatique toutes les 4 minutes.");
+    } else {
+      console.error("Le salon n'a pas été trouvé. Vérifiez l'ID du salon.");
+    }
+  }, 4 * 60 * 1000); // 4 minutes en millisecondes
 });
 client.login(process.env.DISCORD_TOKEN);
 
@@ -60,37 +70,46 @@ client.on("messageCreate", (message) => {
 //  ------- GitHub -------
 const createHandler = require("github-webhook-handler");
 const express = require("express");
+const crypto = require("crypto"); // Ajout de la bibliothèque crypto
 const app = express();
+
 const handler = createHandler({
   path: "/webhook",
   secret: process.env.GITHUB_SECRET,
 });
-// Middleware avec Express pour gérer les requêtes GitHub
-app.use("/webhook", (req, res, next) => {
+
+app.use(express.json());
+
+app.post("/webhook", (req, res, next) => {
+  const signature = req.headers["x-hub-signature"];
+  const githubSecret = process.env.GITHUB_SECRET;
+  console.log("Signature reçue :", signature);
+
   handler(req, res, (err) => {
-    res.statusCode = 404;
-    res.end("Aucune correspondance pour cette route.");
+    if (err) {
+      // Si une erreur se produit, passez-la au gestionnaire d'erreurs Express
+      return next(err);
+    }
+    // Si tout va bien, laisser le flux de la requête se poursuivre
+    next();
   });
 });
 
-// Écoutez le serveur sur le port souhaité (Glitch utilise le port process.env.PORT)
-app.listen(process.env.PORT || 3000, () => {
-  console.log(
-    `Serveur en cours d'écoute sur le port ${process.env.PORT || 3000}`
-  );
-});
-
-// Gestionnaire d'événements pour les alertes GitHub
-handler.on("error", (err) => {
+// Gestionnaire d'erreurs Express
+app.use((err, req, res, next) => {
   console.error("Erreur du gestionnaire de webhook:", err.message);
+  res
+    .status(500)
+    .send("Une erreur est survenue lors du traitement du webhook.");
 });
 
 handler.on("push", (event) => {
-  const repository = event.payload.repository.full_name;
-  const branch = event.payload.ref.replace("refs/heads/", "");
+  console.log("Nouveau commit:", event.payload.commits[0].message);
+});
 
-  console.log(`Nouveau commit sur ${repository}:${branch}`);
-  // Envoyez l'alerte sur le canal Discord approprié ici
+const port = process.env.PORT || 8080;
+app.listen(port, () => {
+  console.log(`Serveur en cours d'écoute sur le port ${port}`);
 });
 
 client.login(process.env.DISCORD_TOKEN);
